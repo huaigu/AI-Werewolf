@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "mock-witty",
+    "maxTokens": 1100,
+    "temperature": 0.9,
+    "provider": "mock"
+  },
+  "game": {
+    "personality": "witty",
+    "strategy": "balanced"
+  },
+  "logging": {
+    "enabled": true,
+    "level": "debug"
+  }
+}

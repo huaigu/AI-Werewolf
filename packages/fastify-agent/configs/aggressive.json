@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "mock-aggressive",
+    "maxTokens": 1200,
+    "temperature": 0.8,
+    "provider": "mock"
+  },
+  "game": {
+    "personality": "aggressive",
+    "strategy": "aggressive"
+  },
+  "logging": {
+    "enabled": true,
+    "level": "info"
+  }
+}

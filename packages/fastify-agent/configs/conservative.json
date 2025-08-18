@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "ai": {
+    "model": "mock-conservative",
+    "maxTokens": 800,
+    "temperature": 0.5,
+    "provider": "mock"
+  },
+  "game": {
+    "personality": "conservative",
+    "strategy": "conservative"
+  },
+  "logging": {
+    "enabled": true,
+    "level": "info"
+  }
+}
