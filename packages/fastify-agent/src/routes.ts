@@ -8,8 +8,8 @@ import {
   VotingResponseSchema,
   LastWordsResponseSchema
 } from '@ai-werewolf/types';
-import { MockService } from '../services/MockService.js';
-import { createValidationHook, validateResponse } from '../middleware/validation.js';
+import { MockService } from './services/MockService';
+import { createValidationHook, validateResponse } from './middleware/validation';
 import { z } from 'zod';
 import winston from 'winston';
 

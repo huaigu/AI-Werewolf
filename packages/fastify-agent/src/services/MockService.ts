@@ -11,7 +11,7 @@ import {
   type NightActionResponseType
 } from '@ai-werewolf/types';
 import { v4 as uuidv4 } from 'uuid';
-import { AgentConfig } from './ConfigService.js';
+import { AgentConfig } from './ConfigService';
 
 export class MockService {
   private gameId?: string;

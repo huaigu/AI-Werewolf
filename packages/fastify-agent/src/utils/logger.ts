@@ -1,5 +1,5 @@
 import winston from 'winston';
-import { EnvConfig } from './env.js';
+import { EnvConfig } from './env';
 
 export interface LoggerConfig {
   level: string;

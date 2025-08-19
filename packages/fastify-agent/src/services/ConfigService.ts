@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { z } from 'zod';
-import { EnvConfig } from '../utils/env.js';
+import { EnvConfig } from '../utils/env';
 
 // 配置文件 schema，与现有 player 包兼容
 const configSchema = z.object({
@@ -49,23 +49,23 @@ export class ConfigService {
     const envConfigParsed = envConfig || {};
     const baseConfig: AgentConfig = {
       server: {
-        port: envConfigParsed.PORT || 3001,
-        host: envConfigParsed.HOST || '0.0.0.0',
+        port: envConfigParsed?.PORT || 3001,
+        host: envConfigParsed?.HOST || '0.0.0.0',
       },
       ai: {
-        model: envConfigParsed.AI_MODEL || 'mock-model',
+        model: envConfigParsed?.AI_MODEL || 'mock-model',
         maxTokens: 1000,
         temperature: 0.7,
-        provider: (envConfigParsed.AI_PROVIDER as any) || 'mock',
-        apiKey: envConfigParsed.AI_API_KEY,
+        provider: (envConfigParsed?.AI_PROVIDER as 'mock' | 'openrouter' | 'openai') || 'mock',
+        apiKey: envConfigParsed?.AI_API_KEY,
       },
       game: {
-        personality: envConfigParsed.AGENT_PERSONALITY || 'default',
-        strategy: envConfigParsed.AGENT_STRATEGY || 'balanced',
+        personality: envConfigParsed?.AGENT_PERSONALITY || 'default',
+        strategy: (envConfigParsed?.AGENT_STRATEGY as 'aggressive' | 'conservative' | 'balanced') || 'balanced',
       },
       logging: {
         enabled: true,
-        level: envConfigParsed.LOG_LEVEL || 'info',
+        level: (envConfigParsed?.LOG_LEVEL as 'error' | 'warn' | 'info' | 'debug') || 'info',
       },
     };
 
@@ -118,11 +118,16 @@ export class ConfigService {
     } catch (error) {
       if (error instanceof z.ZodError) {
         console.error('❌ 配置验证失败:');
-        error.errors.forEach(err => {
-          console.error(`  ${err.path.join('.')}: ${err.message}`);
-        });
+        if (error.issues && Array.isArray(error.issues)) {
+          error.issues.forEach((err: z.ZodIssue) => {
+            console.error(`  ${err.path.join('.')}: ${err.message}`);
+          });
+        } else {
+          console.error('  详细错误信息:', error.message);
+        }
         process.exit(1);
       }
+      console.error('❌ 配置验证出现未知错误:', error);
       throw error;
     }
   }

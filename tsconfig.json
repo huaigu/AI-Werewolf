@@ -17,6 +17,7 @@
     { "path": "./shared/types" },
     { "path": "./shared/lib" },
     { "path": "./packages/game-master-vite" },
-    { "path": "./packages/player" }
+    { "path": "./packages/player" },
+    { "path": "./packages/fastify-agent" }
   ]
 }

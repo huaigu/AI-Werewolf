@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "AI Werewolf Fastify-based player agent server",
   "main": "dist/index.js",
-  "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "dev:config": "bun --watch src/index.ts --config=",
@@ -11,7 +10,7 @@
     "dev:aggressive": "bun --watch src/index.ts --config=configs/aggressive.json",
     "dev:conservative": "bun --watch src/index.ts --config=configs/conservative.json",
     "dev:witty": "bun --watch src/index.ts --config=configs/witty.json",
-    "build": "bun build src/index.ts --outdir=dist --target=bun",
+    "build": "tsc",
     "start": "bun dist/index.js",
     "start:config": "bun dist/index.js --config=",
     "test": "bun test",
@@ -24,7 +23,7 @@
     "fastify": "^4.24.0",
     "@fastify/cors": "^8.4.0",
     "winston": "^3.11.0",
-    "zod": "^3.22.0",
+    "zod": "*",
     "dotenv": "^16.3.0",
     "@ai-werewolf/types": "workspace:*",
     "uuid": "^9.0.1"
@@ -32,11 +31,7 @@
   "devDependencies": {
     "@types/uuid": "^9.0.7",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "bun-types": "latest",
-    "eslint": "^8.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0"
+    "typescript": "^5.0.0"
   },
   "keywords": [
     "werewolf",

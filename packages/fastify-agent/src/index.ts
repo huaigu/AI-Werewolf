@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { loadEnvConfig } from './utils/env.js';
-import { createLogger } from './utils/logger.js';
-import { loggingMiddleware } from './middleware/logging.js';
-import { ConfigService, parseCommandLineArgs } from './services/ConfigService.js';
-import { MockService } from './services/MockService.js';
-import { registerRoutes } from './routes.js';
+import { loadEnvConfig } from './utils/env';
+import { createLogger } from './utils/logger';
+import { loggingMiddleware } from './middleware/logging';
+import { ConfigService, parseCommandLineArgs } from './services/ConfigService';
+import { MockService } from './services/MockService';
+import { registerRoutes } from './routes';
 import { readFileSync, mkdirSync, existsSync } from 'fs';
 
 async function createServer() {

@@ -1,5 +1,5 @@
 import { FastifyRequest, FastifyReply, FastifyInstance } from 'fastify';
-import { formatRequestLog, formatErrorLog } from '../utils/logger.js';
+import { formatRequestLog, formatErrorLog } from '../utils/logger';
 import winston from 'winston';
 
 export interface LoggingOptions {
