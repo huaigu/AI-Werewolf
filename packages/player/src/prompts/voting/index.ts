@@ -1,4 +1,4 @@
-import type { PlayerContext, SeerContext, WitchContext, GameContext } from '../../shared';
+import type { PlayerContext, SeerContext, WitchContext, GameContext, PlayerAnalysis } from '../../shared';
 import { Role } from '../../shared';
 import type { PlayerServer } from '../../PlayerServer';
 
@@ -30,7 +30,25 @@ function formatCurrentVotes(votes: any[] | any): string {
   return allVotes.length > 0 ? allVotes.join('，') : '暂无投票';
 }
 
-export function getVillagerVoting(playerServer: PlayerServer, context: PlayerContext): string {
+function formatAnalysisSummary(analysis: PlayerAnalysis): string {
+  const profilesText = analysis.profiles
+    .map(p => {
+      const suspicionPercent = Math.round(p.suspicionScore * 100);
+      const evidenceText = p.keyEvidence.length > 0 ? p.keyEvidence.join('; ') : '暂无';
+      return `  - 玩家 ${p.id} (${p.isAlive ? '存活' : '死亡'}):
+    - 可疑度: ${suspicionPercent}%
+    - 行为标签: [${p.behaviorTags.join(', ')}]
+    - 关键证据: ${evidenceText}`;
+    })
+    .join('\n');
+
+  return `## 态势分析摘要 (由辅助系统生成)
+- 当前阶段: ${analysis.phase}
+- 玩家档案与怀疑链:
+${profilesText}`;
+}
+
+export function getVillagerVoting(playerServer: PlayerServer, context: PlayerContext, analysisSummary: string): string {
   const playerId = playerServer.getPlayerId();
   const params = {
     playerId: playerId?.toString() || '0',
@@ -47,15 +65,18 @@ export function getVillagerVoting(playerServer: PlayerServer, context: PlayerCon
   
   return `你是${params.playerId}号玩家，狼人杀游戏中的村民角色。当前投票环节：
 
+${analysisSummary}
+
 存活玩家：[${playerList}]
 今日发言摘要：
 ${speechSummary}
 当前投票情况：${currentVotes}
 
 作为村民，你的投票策略：
-1. 优先投票给发言逻辑矛盾、行为可疑的玩家
-2. 避免盲从，独立分析
-3. 注意保护可能的神职角色
+1. **优先根据"态势分析摘要"中的高可疑度玩家进行决策**
+2. 利用"关键证据"来构建你的投票理由
+3. 独立分析，避免盲从被标记为'Follower'的玩家
+4. 注意保护可能的神职角色
 
 请返回你的投票决定，格式要求：
 - target: 你要投票的玩家ID（数字）
@@ -64,7 +85,7 @@ ${speechSummary}
 `;
 }
 
-export function getWerewolfVoting(playerServer: PlayerServer, context: PlayerContext): string {
+export function getWerewolfVoting(playerServer: PlayerServer, context: PlayerContext, analysisSummary: string): string {
   const playerId = playerServer.getPlayerId();
   const teammateIds = playerServer.getTeammates();
   const params = {
@@ -84,6 +105,8 @@ export function getWerewolfVoting(playerServer: PlayerServer, context: PlayerCon
   
   return `你是${params.playerId}号玩家，狼人杀游戏中的狼人角色。当前投票环节：
 
+${analysisSummary}
+
 存活玩家：[${playerList}]
 你的狼人队友：${teammates}
 今日发言摘要：
@@ -91,9 +114,9 @@ ${speechSummary}
 当前投票情况：${currentVotes}
 
 作为狼人，你的投票策略：
-1. 投票给最可能被放逐的好人
-2. 保护队友，避免投票给队友
-3. 必要时分票，避免狼人团队暴露
+1. **攻击"态势分析摘要"中看起来像神职或逻辑好的好人（如被标记为'Leader'或'Logical'）**
+2. 保护你的狼队友和可疑度已经很高的队友，可以将票投给其他嫌疑人
+3. 利用"关键证据"伪装成好人，攻击其他玩家
 4. 制造好人之间的矛盾
 
 请返回你的投票决定，格式要求：
@@ -103,7 +126,7 @@ ${speechSummary}
 `;
 }
 
-export function getSeerVoting(playerServer: PlayerServer, context: SeerContext): string {
+export function getSeerVoting(playerServer: PlayerServer, context: SeerContext, analysisSummary: string): string {
   const playerId = playerServer.getPlayerId();
   const params = {
     playerId: playerId?.toString() || '0',
@@ -129,6 +152,8 @@ export function getSeerVoting(playerServer: PlayerServer, context: SeerContext):
   
   return `你是${params.playerId}号玩家，狼人杀游戏中的预言家角色。当前投票环节：
 
+${analysisSummary}
+
 存活玩家：[${playerList}]
 今日发言摘要：
 ${speechSummary}
@@ -138,10 +163,10 @@ ${speechSummary}
 ${checkInfo}
 
 作为预言家，你的投票策略：
-1. 优先投票给你确认的狼人
-2. 保护你确认的好人
-3. 引导好人投票正确目标
-4. 在身份公开后，发挥领导作用
+1. **优先投票给你确认的狼人，结合"态势分析摘要"中的证据**
+2. 保护你确认的好人，避免误导性投票
+3. 利用"关键证据"引导好人投票正确目标
+4. 在身份公开后，发挥领导作用，基于具体分析
 
 请返回你的投票决定，格式要求：
 - target: 你要投票的玩家ID（数字）
@@ -150,7 +175,7 @@ ${checkInfo}
 `;
 }
 
-export function getWitchVoting(playerServer: PlayerServer, context: WitchContext): string {
+export function getWitchVoting(playerServer: PlayerServer, context: WitchContext, analysisSummary: string): string {
   const playerId = playerServer.getPlayerId();
   const params = {
     playerId: playerId?.toString() || '0',
@@ -171,6 +196,8 @@ export function getWitchVoting(playerServer: PlayerServer, context: WitchContext
   
   return `你是${params.playerId}号玩家，狼人杀游戏中的女巫角色。当前投票环节：
 
+${analysisSummary}
+
 存活玩家：[${playerList}]
 今日发言摘要：
 ${speechSummary}
@@ -178,10 +205,10 @@ ${speechSummary}
 你的药水使用情况：${potionInfo}
 
 作为女巫，你的投票策略：
-1. 分析玩家逻辑，投票给最可疑的玩家
+1. **根据"态势分析摘要"投票给最可疑的玩家，利用关键证据**
 2. 隐藏身份，避免被狼人发现
 3. 在必要时可以暗示有重要信息
-4. 考虑毒药使用的影响
+4. 考虑毒药使用的影响和夜间信息
 
 请返回你的投票决定，格式要求：
 - target: 你要投票的玩家ID（数字）
@@ -264,22 +291,25 @@ ${speechSummary}
 }
 
 // 工厂函数
-export function getRoleVoting(playerServer: PlayerServer, context: GameContext): string {
+export function getRoleVoting(playerServer: PlayerServer, context: GameContext, analysis?: PlayerAnalysis): string {
   const role = playerServer.getRole();
   
   if (!role) {
     throw new Error('PlayerServer must have role set');
   }
+
+  // 生成分析摘要（如果提供了分析数据）
+  const analysisSummary = analysis ? formatAnalysisSummary(analysis) : '';
   
   switch (role) {
     case Role.VILLAGER:
-      return getVillagerVoting(playerServer, context as PlayerContext);
+      return getVillagerVoting(playerServer, context as PlayerContext, analysisSummary);
     case Role.WEREWOLF:
-      return getWerewolfVoting(playerServer, context as PlayerContext);
+      return getWerewolfVoting(playerServer, context as PlayerContext, analysisSummary);
     case Role.SEER:
-      return getSeerVoting(playerServer, context as SeerContext);
+      return getSeerVoting(playerServer, context as SeerContext, analysisSummary);
     case Role.WITCH:
-      return getWitchVoting(playerServer, context as WitchContext);
+      return getWitchVoting(playerServer, context as WitchContext, analysisSummary);
     default:
       throw new Error(`Unknown role: ${role}`);
   }

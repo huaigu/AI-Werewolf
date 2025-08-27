@@ -1,9 +1,27 @@
-import type { GameContext, PlayerContext, SeerContext, WitchContext } from '../../shared';
+import type { GameContext, PlayerContext, SeerContext, WitchContext, PlayerAnalysis } from '../../shared';
 import { formatPlayerList, formatHistoryEvents } from '../utils';
 import { Role } from '../../shared';
 import type { PlayerServer } from '../../PlayerServer';
 
-export function getWerewolfNightAction(playerServer: PlayerServer, context: GameContext): string {
+function formatAnalysisSummary(analysis: PlayerAnalysis): string {
+  const profilesText = analysis.profiles
+    .map(p => {
+      const suspicionPercent = Math.round(p.suspicionScore * 100);
+      const evidenceText = p.keyEvidence.length > 0 ? p.keyEvidence.join('; ') : '暂无';
+      return `  - 玩家 ${p.id} (${p.isAlive ? '存活' : '死亡'}):
+    - 可疑度: ${suspicionPercent}%
+    - 行为标签: [${p.behaviorTags.join(', ')}]
+    - 关键证据: ${evidenceText}`;
+    })
+    .join('\n');
+
+  return `## 态势分析摘要 (由辅助系统生成)
+- 当前阶段: ${analysis.phase}
+- 玩家档案与怀疑链:
+${profilesText}`;
+}
+
+export function getWerewolfNightAction(playerServer: PlayerServer, context: GameContext, analysisSummary: string): string {
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
   const teammates = playerServer.getTeammates()?.join('、') || '暂无队友信息';
@@ -19,6 +37,9 @@ export function getWerewolfNightAction(playerServer: PlayerServer, context: Game
     : '';
   
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的狼人角色。当前游戏状态：
+
+${analysisSummary}
+
 - 存活玩家: [${playerList}]
 - 你的狼人队友ID: [${teammates}]
 - 当前轮次: 第${context.round}轮
@@ -32,15 +53,16 @@ ${gameProgressInfo}
 - reason: 选择该目标的详细理由
 
 击杀策略建议：
-1. 第1轮时基于位置或随机选择目标
-2. 后续轮次优先击杀对狼人威胁最大的玩家（如预言家、女巫、守卫）
-3. 避免在早期暴露团队
-4. 与队友协调选择目标
+1. **基于"态势分析摘要"选择威胁度最高的目标（如被标记为'Leader'或'Logical'的神职）**
+2. 优先击杀低可疑度但分析能力强的好人
+3. 避免击杀高可疑度的玩家（可能被好人投票出局）
+4. 第1轮时基于位置或随机选择目标
+5. 与队友协调选择目标
 
 请分析当前局势并选择最佳击杀目标。`;
 }
 
-export function getSeerNightAction(playerServer: PlayerServer, context: SeerContext): string {
+export function getSeerNightAction(playerServer: PlayerServer, context: SeerContext, analysisSummary: string): string {
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
   const checkInfo = context.investigatedPlayers ? Object.values(context.investigatedPlayers)
@@ -60,6 +82,9 @@ export function getSeerNightAction(playerServer: PlayerServer, context: SeerCont
     : '';
   
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的预言家角色。当前游戏状态：
+
+${analysisSummary}
+
 - 存活玩家: [${playerList}]
 - 当前轮次: 第${context.round}轮
 - 历史事件: ${historyEvents}
@@ -73,16 +98,17 @@ ${gameProgressInfo}
 - reason: 选择该玩家的理由
 
 查验策略建议：
-1. 【重要】不能查验自己（${playerServer.getPlayerId()}号玩家）
-2. 第1轮时基于位置或随机选择其他玩家
-3. 后续轮次优先查验行为可疑的玩家
+1. **基于"态势分析摘要"优先查验高可疑度玩家**
+2. 【重要】不能查验自己（${playerServer.getPlayerId()}号玩家）
+3. 利用关键证据选择最值得查验的目标
 4. 避免查验已经暴露身份的玩家
-5. 考虑查验结果对白天发言的影响
+5. 第1轮时基于位置或随机选择其他玩家
+6. 考虑查验结果对白天发言的影响
 
 请分析当前局势并选择最佳查验目标。`;
 }
 
-export function getWitchNightAction(playerServer: PlayerServer, context: WitchContext): string {
+export function getWitchNightAction(playerServer: PlayerServer, context: WitchContext, analysisSummary: string): string {
   const playerList = formatPlayerList(context.alivePlayers);
   const historyEvents = formatHistoryEvents(['夜间行动阶段']);
   const potionInfo = context.potionUsed ? 
@@ -99,6 +125,9 @@ export function getWitchNightAction(playerServer: PlayerServer, context: WitchCo
     : '';
   
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的女巫角色。当前游戏状态：
+
+${analysisSummary}
+
 - 存活玩家: [${playerList}]
 - 当前轮次: 第${context.round}轮
 - 今晚被杀玩家ID: ${context.killedTonight || 0} (0表示无人被杀)
@@ -114,12 +143,17 @@ ${potionInfo}
 2. 是否使用毒药毒人（poisonTarget: 要毒的玩家ID或0表示不毒）
 3. action: 'using'（使用任意药水）或'idle'（不使用药水）
 
+药水使用策略：
+1. **基于"态势分析摘要"评估被杀玩家的价值（如被标记为'Leader'的好人值得救）**
+2. **毒药优先使用在高可疑度且有确凿证据的狼人身上**
+3. 考虑药水的战略价值和时机
+4. 第1轮夜间基于位置或随机性做决策
+
 注意：
 - 如果救人，healTarget设为被杀玩家的ID
 - 如果毒人，poisonTarget设为目标玩家的ID
 - 如果都不使用，action设为'idle'，两个target都设为0
-- 请为每个决定提供详细的理由（healReason和poisonReason）
-- 第1轮夜间时，你的决策理由应该基于：被杀玩家的身份、药水的战略价值、随机性等，而不是基于不存在的"白天发言"`;
+- 请为每个决定提供详细的理由（healReason和poisonReason）`;
 }
 
 export function getGuardNightAction(playerServer: PlayerServer, context: PlayerContext): string {
@@ -185,25 +219,28 @@ export function getHunterDeathAction(playerServer: PlayerServer, context: Player
 }
 
 // 工厂函数 - 统一使用 PlayerServer 和 GameContext
-export function getRoleNightAction(playerServer: PlayerServer, context: GameContext): string {
+export function getRoleNightAction(playerServer: PlayerServer, context: GameContext, analysis?: PlayerAnalysis): string {
   const role = playerServer.getRole();
   const playerId = playerServer.getPlayerId();
   
   if (!role || playerId === undefined) {
     throw new Error('PlayerServer must have role and playerId set');
   }
+
+  // 生成分析摘要（如果提供了分析数据）
+  const analysisSummary = analysis ? formatAnalysisSummary(analysis) : '';
   
   switch (role) {
     case Role.VILLAGER:
       throw new Error('Villager has no night action, should be skipped');
     case Role.WEREWOLF: {
-      return getWerewolfNightAction(playerServer, context as PlayerContext);
+      return getWerewolfNightAction(playerServer, context as PlayerContext, analysisSummary);
     }
     case Role.SEER: {
-      return getSeerNightAction(playerServer, context as SeerContext);
+      return getSeerNightAction(playerServer, context as SeerContext, analysisSummary);
     }
     case Role.WITCH: {
-      return getWitchNightAction(playerServer, context as WitchContext);
+      return getWitchNightAction(playerServer, context as WitchContext, analysisSummary);
     }
     default:
       throw new Error(`Unknown role: ${role}`);

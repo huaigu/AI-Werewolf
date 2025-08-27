@@ -48,6 +48,20 @@ export interface Vote {
 // 所有投票记录的类型定义
 export type AllVotes = Record<Round, Vote[]>;
 
+// 玩家分析相关类型
+export interface PlayerProfile {
+  id: number;
+  isAlive: boolean;
+  suspicionScore: number;
+  behaviorTags: string[];
+  keyEvidence: string[];
+}
+
+export interface PlayerAnalysis {
+  phase: string;
+  profiles: PlayerProfile[];
+}
+
 
 
 // 基础能力请求接口
