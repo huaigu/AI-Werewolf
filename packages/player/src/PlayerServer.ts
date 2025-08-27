@@ -126,6 +126,7 @@ export class PlayerServer {
   }
 
   async vote(context: PlayerContext): Promise<VotingResponseType> {
+    console.log(`====vote=== ${this.role} -- NO API: ${!this.config.ai.apiKey}`)
     if (!this.role || !this.config.ai.apiKey) {
       return { target: 1, reason: "默认投票给玩家1" };
     }
