@@ -1,6 +1,6 @@
-import type { GameContext, PlayerContext, SeerContext, WitchContext } from '@ai-werewolf/types';
+import type { GameContext, PlayerContext, SeerContext, WitchContext } from '../../shared';
 import { formatPlayerList, formatHistoryEvents } from '../utils';
-import { Role } from '@ai-werewolf/types';
+import { Role } from '../../shared';
 import type { PlayerServer } from '../../PlayerServer';
 
 export function getWerewolfNightAction(playerServer: PlayerServer, context: GameContext): string {

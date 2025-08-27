@@ -19,7 +19,7 @@ import {
 } from 'langfuse';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { LangfuseExporter } from 'langfuse-vercel';
-import type { PlayerContext, GamePhase } from '@ai-werewolf/types';
+import type { PlayerContext, GamePhase } from '../shared';
 
 // Langfuse 客户端实例
 let langfuseClient: Langfuse | null = null;

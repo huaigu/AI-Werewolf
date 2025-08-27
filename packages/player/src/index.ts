@@ -18,7 +18,7 @@ import type {
   PlayerContext, 
   WitchContext, 
   SeerContext 
-} from '@ai-werewolf/types';
+} from './shared';
 
 // 解析命令行参数
 const args = process.argv.slice(2);

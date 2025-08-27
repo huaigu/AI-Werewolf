@@ -23,7 +23,6 @@
     "@ai-sdk/openai": "*",
     "@ai-sdk/openai-compatible": "^1.0.2",
     "@ai-werewolf/lib": "workspace:*",
-    "@ai-werewolf/types": "workspace:*",
     "@openrouter/ai-sdk-provider": "^0.7.3",
     "@types/cors": "^2.8.19",
     "ai": "*",

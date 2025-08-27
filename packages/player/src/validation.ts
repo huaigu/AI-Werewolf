@@ -8,4 +8,4 @@ export {
   WitchNightActionSchema,
   SeerNightActionSchema,
   getNightActionSchemaByRole
-} from '@ai-werewolf/types';
+} from './shared';

@@ -1,5 +1,5 @@
-import type { PlayerContext, SeerContext, WitchContext, GameContext } from '@ai-werewolf/types';
-import { Role } from '@ai-werewolf/types';
+import type { PlayerContext, SeerContext, WitchContext, GameContext } from '../../shared';
+import { Role } from '../../shared';
 import type { PlayerServer } from '../../PlayerServer';
 
 function formatPlayerList(players: any[]): string {

@@ -1,4 +1,4 @@
-import type { LastWordsParams } from '@ai-werewolf/types';
+import type { LastWordsParams } from '../../shared';
 import { formatPlayerList } from '../utils';
 
 
