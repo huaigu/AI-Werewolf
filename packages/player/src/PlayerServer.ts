@@ -17,8 +17,8 @@ import {
   SpeechResponseSchema
 } from '@ai-werewolf/types';
 import { WerewolfPrompts } from './prompts';
-import { generateObject } from 'ai';
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { generateObject, generateText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { 
   getAITelemetryConfig,
   createGameSession,
@@ -28,6 +28,8 @@ import {
   type AITelemetryContext
 } from './services/langfuse';
 import { PlayerConfig } from './config/PlayerConfig';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // 角色到夜间行动 Schema 的映射
 const ROLE_SCHEMA_MAP = {
@@ -42,9 +44,53 @@ export class PlayerServer {
   private role?: Role;
   private teammates?: PlayerId[];
   private config: PlayerConfig;
+  private guideContent?: string;
 
   constructor(config: PlayerConfig) {
     this.config = config;
+    this.loadGuideContent();
+  }
+
+  private loadGuideContent(): void {
+    try {
+      const guidePath = join(__dirname, 'prompts', 'guide.md');
+      this.guideContent = readFileSync(guidePath, 'utf-8');
+    } catch (error) {
+      console.warn('Failed to load guide.md:', error);
+      this.guideContent = '';
+    }
+  }
+
+  private getRoleSpecificGuide(): string {
+    if (!this.guideContent || !this.role) {
+      return '';
+    }
+
+    // 根据角色提取对应的指南部分
+    if (this.role === Role.WEREWOLF) {
+      // 提取狼人指南部分 (## 狼人指南 到 ## 神职指南)
+      const werewolfStart = this.guideContent.indexOf('## 狼人指南');
+      const werewolfEnd = this.guideContent.indexOf('## 神职指南');
+      if (werewolfStart !== -1 && werewolfEnd !== -1) {
+        return this.guideContent.substring(werewolfStart, werewolfEnd).trim();
+      }
+    } else if (this.role === Role.SEER || this.role === Role.WITCH) {
+      // 提取神职指南部分 (## 神职指南 到 ## 村民指南)
+      const godStart = this.guideContent.indexOf('## 神职指南');
+      const godEnd = this.guideContent.indexOf('## 村民指南');
+      if (godStart !== -1 && godEnd !== -1) {
+        return this.guideContent.substring(godStart, godEnd).trim();
+      }
+    } else if (this.role === Role.VILLAGER) {
+      // 提取村民指南部分 (## 村民指南 到最后)
+      const villagerStart = this.guideContent.indexOf('## 村民指南');
+      if (villagerStart !== -1) {
+        return this.guideContent.substring(villagerStart).trim();
+      }
+    }
+
+    // 如果找不到对应部分，返回完整指南
+    return this.guideContent;
   }
 
   async startGame(params: StartGameParams): Promise<void> {
@@ -153,11 +199,15 @@ export class PlayerServer {
     // 获取遥测配置
     const telemetryConfig = this.getTelemetryConfig(functionId, context);
     
+    // 获取角色特定的指南内容
+    const roleGuide = this.getRoleSpecificGuide();
+    const systemPrompt = roleGuide ? `${roleGuide}\n\n` : '';
+    
     try {
       const result = await generateObject({
         model: this.getModel(),
         schema: schema,
-        prompt: prompt,
+        prompt: systemPrompt + "always response in chinese \r\n" + prompt,
         maxOutputTokens: maxOutputTokens || this.config.ai.maxTokens,
         temperature: temperature ?? this.config.ai.temperature,
         // 使用 experimental_telemetry（只有在有配置时才传递）
@@ -167,10 +217,146 @@ export class PlayerServer {
       console.log(`🎯 ${functionId} result:`, JSON.stringify(result.object, null, 2));
       
       return result.object as T;
-    } catch (error) {
-      console.error(`AI ${functionId} failed:`, error);
+    } catch (error: any) {
+      console.error(`AI ${functionId} failed with generateObject:`, error);
+      
+      // Fallback: 如果模型不支持 json_schema，使用 generateText + JSON 解析
+      const errorMsg = error?.message || error?.toString() || '';
+      const isJsonSchemaNotSupported = errorMsg.includes('json_schema') && 
+                                      (errorMsg.includes('not supported') || errorMsg.includes('not valid'));
+      
+      if (isJsonSchemaNotSupported) {
+        console.log(`🔄 Falling back to generateText for ${functionId}`);
+        return await this.generateWithTextFallback<T>(params);
+      }
+      
       throw new Error(`Failed to generate ${functionId}: ${error}`);
     }
+  }
+
+  // Fallback方法：使用generateText + JSON解析
+  private async generateWithTextFallback<T>(
+    params: {
+      functionId: string;
+      schema: any;  // Zod schema
+      prompt: string;
+      maxOutputTokens?: number;
+      temperature?: number;
+      context?: PlayerContext;
+    }
+  ): Promise<T> {
+    const { functionId, context, schema, prompt, maxOutputTokens, temperature } = params;
+    
+    // 获取遥测配置
+    const telemetryConfig = this.getTelemetryConfig(functionId, context);
+    
+    // 获取角色特定的指南内容
+    const roleGuide = this.getRoleSpecificGuide();
+    const systemPrompt = roleGuide ? `${roleGuide}\n\n` : '';
+    
+    // 构建包含JSON格式要求的提示词
+    const jsonPrompt = systemPrompt + "always response in chinese \r\n" + prompt + 
+      `\n\n请严格按照以下JSON格式回答，注意数据类型（数字不要用引号），不要添加任何解释文字，只输出JSON：\n${JSON.stringify(this.getSchemaExample(schema), null, 2)}`;
+    
+    try {
+      const result = await generateText({
+        model: this.getModel(),
+        prompt: jsonPrompt,
+        maxOutputTokens: maxOutputTokens || this.config.ai.maxTokens,
+        temperature: temperature ?? this.config.ai.temperature,
+        // 使用 experimental_telemetry（只有在有配置时才传递）
+        ...(telemetryConfig && { experimental_telemetry: telemetryConfig }),
+      });
+
+      console.log(`📄 ${functionId} text result:`, result.text);
+      
+      // 解析JSON
+      const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      // 类型强制转换
+      const coerced = this.coerceTypes(parsed, schema);
+      
+      // 使用schema验证
+      const validated = schema.parse(coerced);
+      console.log(`🎯 ${functionId} validated result:`, JSON.stringify(validated, null, 2));
+      
+      return validated as T;
+    } catch (error) {
+      console.error(`AI ${functionId} fallback failed:`, error);
+      throw new Error(`Failed to generate ${functionId} with fallback: ${error}`);
+    }
+  }
+
+  // 类型强制转换
+  private coerceTypes(data: any, schema: any): any {
+    const shape = schema.shape || schema._def?.shape;
+    if (!shape || !data || typeof data !== 'object') {
+      return data;
+    }
+    
+    const coerced = { ...data };
+    
+    Object.keys(shape).forEach(key => {
+      if (coerced[key] === undefined || coerced[key] === null) {
+        return; // 跳过缺失的字段
+      }
+      
+      const field = shape[key];
+      const fieldType = field._def?.typeName;
+      
+      if (fieldType === 'ZodNumber') {
+        // 字符串数字转换为数字
+        if (typeof coerced[key] === 'string' && !isNaN(Number(coerced[key]))) {
+          coerced[key] = Number(coerced[key]);
+        }
+      } else if (fieldType === 'ZodBoolean') {
+        // 字符串布尔值转换
+        if (typeof coerced[key] === 'string') {
+          const lowerValue = coerced[key].toLowerCase();
+          if (lowerValue === 'true' || lowerValue === '1') {
+            coerced[key] = true;
+          } else if (lowerValue === 'false' || lowerValue === '0') {
+            coerced[key] = false;
+          }
+        }
+      } else if (fieldType === 'ZodString') {
+        // 确保是字符串
+        if (typeof coerced[key] !== 'string') {
+          coerced[key] = String(coerced[key]);
+        }
+      }
+    });
+    
+    return coerced;
+  }
+
+  // 从schema生成示例JSON
+  private getSchemaExample(schema: any): any {
+    const shape = schema.shape || schema._def?.shape;
+    if (!shape) return {};
+    
+    const example: any = {};
+    Object.keys(shape).forEach(key => {
+      const field = shape[key];
+      if (field._def?.typeName === 'ZodString') {
+        example[key] = "示例文本";
+      } else if (field._def?.typeName === 'ZodNumber') {
+        example[key] = 1;
+      } else if (field._def?.typeName === 'ZodBoolean') {
+        example[key] = true;
+      } else if (field._def?.typeName === 'ZodEnum') {
+        example[key] = field._def.values[0];
+      } else {
+        example[key] = "示例值";
+      }
+    });
+    
+    return example;
   }
 
   // AI生成方法
@@ -262,17 +448,14 @@ export class PlayerServer {
 
   // 辅助方法
   private getModel() {
-    const openrouter = createOpenAICompatible({
-      name: 'openrouter',
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY,
-      headers: {
-        'HTTP-Referer': 'https://mojo.monad.xyz',
-        'X-Title': 'AI Werewolf Game',
-      },
+    const openrouter = createOpenAI({
+      baseURL: process.env.BASEURL || "",
+      apiKey: this.config.ai.apiKey || process.env.OPENROUTER_API_KEY
     });
-    
-    return openrouter.chatModel(this.config.ai.model);
+
+
+    const chatModel =  openrouter.chat(this.config.ai.model);
+    return chatModel
   }
 
   private getTelemetryConfig(
