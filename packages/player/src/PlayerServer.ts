@@ -66,31 +66,39 @@ export class PlayerServer {
       return '';
     }
 
-    // 根据角色提取对应的指南部分
+    // 1. 先提取总体纲要（从文档开头到第一个##标题）
+    const generalGuideEnd = this.guideContent.indexOf('## 狼人指南');
+    const generalGuide = generalGuideEnd !== -1 
+      ? this.guideContent.substring(0, generalGuideEnd).trim() 
+      : '';
+
+    // 2. 再提取角色特定指南部分
+    let roleSpecificGuide = '';
     if (this.role === Role.WEREWOLF) {
       // 提取狼人指南部分 (## 狼人指南 到 ## 神职指南)
       const werewolfStart = this.guideContent.indexOf('## 狼人指南');
       const werewolfEnd = this.guideContent.indexOf('## 神职指南');
       if (werewolfStart !== -1 && werewolfEnd !== -1) {
-        return this.guideContent.substring(werewolfStart, werewolfEnd).trim();
+        roleSpecificGuide = this.guideContent.substring(werewolfStart, werewolfEnd).trim();
       }
     } else if (this.role === Role.SEER || this.role === Role.WITCH) {
       // 提取神职指南部分 (## 神职指南 到 ## 村民指南)
       const godStart = this.guideContent.indexOf('## 神职指南');
       const godEnd = this.guideContent.indexOf('## 村民指南');
       if (godStart !== -1 && godEnd !== -1) {
-        return this.guideContent.substring(godStart, godEnd).trim();
+        roleSpecificGuide = this.guideContent.substring(godStart, godEnd).trim();
       }
     } else if (this.role === Role.VILLAGER) {
-      // 提取村民指南部分 (## 村民指南 到最后)
+      // 提取村民指南部分 (## 村民指南 到文档结尾)
       const villagerStart = this.guideContent.indexOf('## 村民指南');
       if (villagerStart !== -1) {
-        return this.guideContent.substring(villagerStart).trim();
+        roleSpecificGuide = this.guideContent.substring(villagerStart).trim();
       }
     }
 
-    // 如果找不到对应部分，返回完整指南
-    return this.guideContent;
+    // 3. 组合总体纲要 + 角色特定指南
+    const guideParts = [generalGuide, roleSpecificGuide].filter(part => part.length > 0);
+    return guideParts.length > 0 ? guideParts.join('\n\n---\n\n') : this.guideContent;
   }
 
   async startGame(params: StartGameParams): Promise<void> {

@@ -198,6 +198,27 @@ app.post('/api/player/last-words', async (req, res) => {
   }
 });
 
+app.get('/api/health', (_req, res) => {
+  try {
+    const status = playerServer.getStatus();
+    const healthStatus = {
+      status: 'healthy',
+      inGame: !!status.gameId,
+      gameId: status.gameId || null,
+      playerId: status.playerId || null,
+      role: status.role || null
+    };
+    res.json(healthStatus);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({ 
+      status: 'unhealthy',
+      inGame: false,
+      error: 'Failed to get health status' 
+    });
+  }
+});
+
 app.post('/api/player/status', (_req, res) => {
   try {
     const status = playerServer.getStatus();
