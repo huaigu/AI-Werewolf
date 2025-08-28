@@ -124,6 +124,22 @@ export function getWitchNightAction(playerServer: PlayerServer, context: WitchCo
   - 请基于当前已知信息做决策，不要假设或编造不存在的信息`
     : '';
   
+  // 根据药水使用状态动态生成可用行动选项
+  const availableActions: string[] = [];
+  const healUsed = context.potionUsed?.heal || false;
+  const poisonUsed = context.potionUsed?.poison || false;
+  
+  if (!healUsed) {
+    availableActions.push("1. 是否使用解药救人（healTarget: 被杀玩家的ID或0表示不救）");
+  }
+  if (!poisonUsed) {
+    availableActions.push(`${healUsed ? '1' : '2'}. 是否使用毒药毒人（poisonTarget: 要毒的玩家ID或0表示不毒）`);
+  }
+  
+  const actionText = availableActions.length > 0 
+    ? `作为女巫，你需要决定：\n${availableActions.join('\n')}\n${availableActions.length + 1}. action: 'using'（使用任意药水）或'idle'（不使用药水）`
+    : `作为女巫，你的两种药水都已使用完毕：\n- 解药：已用\n- 毒药：已用\n你只能选择 action: 'idle'（不使用药水）`;
+
   return `你是${playerServer.getPlayerId()}号玩家，狼人杀游戏中的女巫角色。当前游戏状态：
 
 ${analysisSummary}
@@ -138,21 +154,35 @@ ${gameProgressInfo}
 你的药水使用情况：
 ${potionInfo}
 
-作为女巫，你需要决定：
-1. 是否使用解药救人（healTarget: 被杀玩家的ID或0表示不救）
-2. 是否使用毒药毒人（poisonTarget: 要毒的玩家ID或0表示不毒）
-3. action: 'using'（使用任意药水）或'idle'（不使用药水）
+${actionText}
 
 药水使用策略：
-1. **基于"态势分析摘要"评估被杀玩家的价值（如被标记为'Leader'的好人值得救）**
-2. **毒药优先使用在高可疑度且有确凿证据的狼人身上**
-3. 考虑药水的战略价值和时机
-4. 第1轮夜间基于位置或随机性做决策
+${!healUsed ? `
+**解药使用策略：**
+1. **【重要】如果你自己被杀，强烈建议自救！女巫可以且应该使用解药救治自己**
+2. **自救优先级**：除非场上有更重要的已跳身份神职需要救治，否则优先自救保留女巫能力
+3. **基于"态势分析摘要"评估被杀玩家的价值（如被标记为'Leader'的好人值得救）**
+4. 考虑解药的战略价值和时机` : ''}
+${!poisonUsed ? `
+**毒药使用策略：**
+1. **毒药优先使用在高可疑度且有确凿证据的狼人身上**
+2. **基于预言家查验结果：如果有明确查杀信息，优先毒杀已确认的狼人**
+3. **配合白天信息：结合发言分析选择毒杀目标**
+4. 考虑毒药的战略价值和时机` : ''}
+${availableActions.length === 0 ? `
+**无可用药水时的策略：**
+1. **专注于白天的分析和投票决策**
+2. **利用之前使用药水获得的信息指导好人阵营**
+3. **隐藏身份，避免暴露女巫身份被针对**` : ''}
 
-注意：
-- 如果救人，healTarget设为被杀玩家的ID
-- 如果毒人，poisonTarget设为目标玩家的ID
-- 如果都不使用，action设为'idle'，两个target都设为0
+注意事项：
+${!healUsed ? `- **如果你自己被杀，设置 healTarget 为你自己的玩家ID 来自救**
+- 如果救其他人，healTarget设为被杀玩家的ID
+- 如果不使用解药，healTarget设为0` : `- **解药已用完，healTarget只能设为0**`}
+${!poisonUsed ? `- 如果毒人，poisonTarget设为目标玩家的ID
+- 如果不使用毒药，poisonTarget设为0` : `- **毒药已用完，poisonTarget只能设为0**`}
+- 如果都不使用或无药可用，action设为'idle'，所有target都设为0
+- 女巫自救是合法且推荐的策略，不要因为错误理解规则而放弃自救
 - 请为每个决定提供详细的理由（healReason和poisonReason）`;
 }
 
