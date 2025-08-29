@@ -1,6 +1,6 @@
 import type { PlayerContext, SeerContext, WitchContext, GameContext, PlayerAnalysis } from '../../shared';
 import { Role } from '../../shared';
-import { formatPlayerList, formatSpeechHistory } from '../utils';
+import { formatPlayerList, formatSpeechHistory, analyzeSeerSituation } from '../utils';
 import type { PlayerServer } from '../../PlayerServer';
 
 function formatAnalysisSummary(analysis: PlayerAnalysis): string {
@@ -66,9 +66,35 @@ export function getVillagerSpeech(playerServer: PlayerServer, context: PlayerCon
   };
   const playerList = formatPlayerList(context.alivePlayers);
   const speechSummary = formatSpeechHistory(params.speechHistory);
-  const suspiciousInfo = params.suspiciousPlayers?.join('、') || '暂无明确可疑目标';
-  
   const customContent = params.customContent || '';
+  
+  // 分析当前预言家情况
+  const seerSituation = analyzeSeerSituation(params.speechHistory);
+  
+  // 根据预言家情况生成阶段策略
+  const getPhaseStrategy = () => {
+    switch (seerSituation.phase) {
+      case 'single':
+        return `**第一阶段：默认站边**
+- 预言家${seerSituation.selectedSeer}号是你的临时领袖
+- 金水保护目标: [${seerSituation.goldWaterPlayers.join('、') || '暂无'}]
+- 查杀攻击目标: [${seerSituation.werewolfTargets.join('、') || '暂无'}]
+- **铁律**：绝对不能攻击唯一预言家及其金水`;
+      
+      case 'conflict':
+        const seerIds = [...new Set(seerSituation.seerClaims.map(c => c.playerId))];
+        return `**第二阶段：对抗分析**
+- 对跳预言家: [${seerIds.join(' vs ')}]
+- 需要理性分析谁更可信
+- 查看验人信息冲突、发言逻辑链、支持者构成`;
+      
+      default:
+        return `**第三阶段：风险决策**
+- 当前无明确预言家信息
+- 专注于逻辑分析和行为观察
+- 等待预言家跳出或更多信息`;
+    }
+  };
   
   return `你是${params.playerId}号玩家，狼人杀游戏中的村民角色，性格特点：正直、逻辑清晰。当前游戏状态：
 
@@ -80,25 +106,34 @@ ${analysisSummary}
 
 ${customContent}
 
-## 【重要】信息理解检查点
-在分析前，请仔细确认以下关键信息：
-- **术语明确**：预言家说"X是好人/金水" = X是队友；预言家说"X是狼人/查杀" = X是敌人
-- **查验结果**：从历史发言中找出所有预言家的查验声明，准确理解每个结果
-- **身份确认**：如果你被查验为"好人/金水"，那么查验你的预言家很可能是真的
-- **逻辑验证**：如果预言家给你发了"好人牌"，你不能因此质疑他是假预言家
+## 【村民核心策略】预言家信息处理模型
 
-作为村民，你的发言策略：
-1. **第一步：准确复述预言家的查验历史，确保理解正确**
-2. **第二步：基于正确理解进行逻辑推理**
-3. **优先保护给你发"好人牌"的预言家（他们很可能是真神）**
-4. **指出高可疑度玩家的逻辑矛盾和异常行为**
-5. 独立分析，避免被标记为'Follower'的盲从行为
+### 当前阶段判断：
+${getPhaseStrategy()}
 
-当前局势分析：
-- 可疑玩家: ${suspiciousInfo}
-- 逻辑矛盾点: ${params.logicalContradictions || '暂无明显矛盾'}
+### 【最高优先级指令】
+在狼人杀中，预言家是好人阵营的唯一信息来源和战术核心。你的首要任务是找到真预言家并围绕其信息展开行动。
 
-⚠️ 【致命错误防范】切勿因为被查验为"好人"而质疑查验者，这是严重的逻辑错误！
+### 发言执行要点：
+${seerSituation.phase === 'single' ? `
+1. **无条件支持**：坚决维护预言家${seerSituation.selectedSeer}号的权威
+2. **金水保护**：为被验证的好人[${seerSituation.goldWaterPlayers.join('、') || '暂无'}]辩护
+3. **查杀执行**：积极攻击被查杀的狼人[${seerSituation.werewolfTargets.join('、') || '暂无'}]
+4. **统一行动**：你的发言必须与预言家的指令保持一致` : 
+seerSituation.phase === 'conflict' ? `
+1. **逻辑分辨**：分析对跳双方的可信度和逻辑一致性
+2. **验人冲突**：重点关注同一目标被验出不同结果的情况
+3. **选边站队**：基于分析结果选择支持的预言家
+4. **团队意识**：避免独狼式分析，寻找可信任的好人盟友` : `
+1. **信息收集**：专注于识别潜在的预言家跳出
+2. **行为观察**：分析玩家发言中的逻辑矛盾和可疑行为
+3. **保守策略**：避免激进发言，等待更多确定信息
+4. **团队合作**：寻找逻辑清晰的好人玩家建立信任`}
+
+### 【绝对禁令】
+- 绝对不能攻击唯一预言家（除非有确凿证据证明其为假）
+- 绝对不能攻击预言家确认的金水
+- 绝对不能因为被验证为"好人"而质疑验证者
 
 ${getSpeechFormatInstruction(Role.VILLAGER)}`;
 }
