@@ -382,6 +382,9 @@ export class GameMaster {
 
     // 夜间阶段完成
     this.operationLogSystem.logPhaseComplete('夜间', '🌙 夜间阶段完成，所有夜间行动已结束，可以进入白天阶段');
+    
+    // 自动推进到白天阶段
+    await this.nextPhase();
   }
 
 
@@ -413,6 +416,9 @@ export class GameMaster {
 
     // 白天阶段完成
     this.operationLogSystem.logPhaseComplete('白天', '☀️ 白天阶段完成，所有玩家发言已结束，可以进入投票阶段');
+    
+    // 自动推进到投票阶段
+    await this.nextPhase();
   }
 
   private async triggerVotingActions(): Promise<void> {
@@ -474,6 +480,9 @@ export class GameMaster {
 
     // 投票阶段完成
     this.operationLogSystem.logPhaseComplete('投票', '🗳️ 投票阶段完成，投票结果已处理，可以进入下一阶段');
+    
+    // 自动推进到下一个夜晚阶段
+    await this.nextPhase();
   }
 
   // This GameMaster instance manages a single game, so getGameState is not needed
@@ -682,11 +691,11 @@ export class GameMaster {
     return this.speechSystem.getAllSpeeches();
   }
 
-  async getOperationLogs(): Promise<any[]> {
+  async getOperationLogs(): Promise<unknown[]> {
     return this.operationLogSystem.getLogs();
   }
 
-  async getRecentOperationLogs(count: number): Promise<any[]> {
+  async getRecentOperationLogs(count: number): Promise<unknown[]> {
     return this.operationLogSystem.getRecentLogs(count);
   }
 

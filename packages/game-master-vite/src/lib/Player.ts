@@ -78,6 +78,8 @@ export abstract class BasePlayer {
 
   protected buildContext(gameMaster: GameMaster):PlayerContext {
     return {
+      gameId: this.gameId,
+      playerId: this.id,
       round:gameMaster.round,
       currentPhase:gameMaster.currentPhase,
       alivePlayers: playersToInfo(gameMaster.alivePlayers),
